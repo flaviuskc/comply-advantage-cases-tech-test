@@ -1,6 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": ["src", "src/**/*.json"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/test-utils.tsx",
+    "src/mockServer.ts"
+  ],
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "./src",
