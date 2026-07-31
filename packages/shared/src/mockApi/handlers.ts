@@ -3,7 +3,8 @@ import example from './example.json';
 import { users } from './users';
 import { cases } from './cases';
 
-import { GetCasesResponse, GetUsersResponse } from './types';
+import { GetCasesResponse } from '../api/cases/types';
+import { GetUsersResponse } from '../api/users/types';
 
 export const casesHandler = ({
   request,

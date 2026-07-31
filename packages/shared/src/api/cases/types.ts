@@ -13,11 +13,3 @@ export type GetCasesResponse = {
   prev: string;
   self: string;
 };
-
-export interface User {
-  identifier: string;
-  name: string;
-  active: boolean;
-}
-
-export type GetUsersResponse = User[];
