@@ -3,6 +3,7 @@ import { Theme, ThemeUIContextValue, useThemeUI } from 'theme-ui';
 
 import {
   alertVariants,
+  badgeVariants,
   buttonVariants,
   linkVariants,
   cardVariants,
@@ -279,10 +280,12 @@ const theme = makeTheme({
     table: 10,
     inputModal: 20,
     overlay: 30,
+    drawer: 40,
     notification: 100,
   },
   // variants
   alerts: alertVariants,
+  badges: badgeVariants,
   buttons: buttonVariants,
   links: linkVariants,
   cards: cardVariants,
