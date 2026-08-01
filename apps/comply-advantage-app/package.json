@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "vitest --config='../../vitest.config.js' --watch=false",
-    "test:watch": "vitest --config='../../vitest.config.js'",
+    "test": "vitest --config=\"../../vitest.config.js\" --watch=false",
+    "test:watch": "vitest --config=\"../../vitest.config.js\"",
     "lint": "eslint ./src --ext .ts,.tsx",
     "lint:fix": "eslint ./src --ext .ts,.tsx --fix"
   },
