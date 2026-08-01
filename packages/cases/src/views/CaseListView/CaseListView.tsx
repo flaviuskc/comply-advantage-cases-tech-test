@@ -4,7 +4,6 @@ import { CasesApi, UsersApi } from 'shared';
 
 import { CaseFilters } from './components/CaseFilters';
 import { CasesTable } from './components/CasesTable';
-import { Pagination } from './components/Pagination';
 import { isReassignableStatus } from './utils/caseStatus';
 
 const PAGE_SIZE = 10;
@@ -50,6 +49,7 @@ const needsReassignment = (
 
 export const CaseListView = () => {
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [needsReassignmentOnly, setNeedsReassignmentOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
@@ -85,14 +85,6 @@ export const CaseListView = () => {
     [allCases, reassignments],
   );
 
-  const openCasesCount = useMemo(
-    () =>
-      casesWithOverrides.filter((caseItem) =>
-        isReassignableStatus(caseItem.status),
-      ).length,
-    [casesWithOverrides],
-  );
-
   const needsReassignmentCount = useMemo(
     () =>
       casesWithOverrides.filter((caseItem) =>
@@ -102,10 +94,20 @@ export const CaseListView = () => {
   );
 
   const filteredCases = useMemo(() => {
-    const selectedSet = new Set(selectedAssigneeIds);
+    const selectedAssigneeSet = new Set(selectedAssigneeIds);
+    const selectedStatusSet = new Set(selectedStatuses);
     const query = searchQuery.trim().toLowerCase();
     return casesWithOverrides.filter((caseItem) => {
-      if (selectedSet.size > 0 && !selectedSet.has(caseItem.assignee_id)) {
+      if (
+        selectedAssigneeSet.size > 0 &&
+        !selectedAssigneeSet.has(caseItem.assignee_id)
+      ) {
+        return false;
+      }
+      if (
+        selectedStatusSet.size > 0 &&
+        !selectedStatusSet.has(caseItem.status)
+      ) {
         return false;
       }
       if (needsReassignmentOnly && !needsReassignment(caseItem, usersById)) {
@@ -119,20 +121,29 @@ export const CaseListView = () => {
   }, [
     casesWithOverrides,
     selectedAssigneeIds,
+    selectedStatuses,
     needsReassignmentOnly,
     searchQuery,
     usersById,
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredCases.length / PAGE_SIZE));
+  const totalCount = filteredCases.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
   const pagedCases = filteredCases.slice(
     (safePage - 1) * PAGE_SIZE,
     safePage * PAGE_SIZE,
   );
+  const rangeStart = totalCount === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(safePage * PAGE_SIZE, totalCount);
 
   const handleAssigneeFilterChange = (assigneeIds: string[]) => {
     setSelectedAssigneeIds(assigneeIds);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (statuses: string[]) => {
+    setSelectedStatuses(statuses);
     setCurrentPage(1);
   };
 
@@ -146,13 +157,6 @@ export const CaseListView = () => {
     setCurrentPage(1);
   };
 
-  const handleClearFilters = () => {
-    setSelectedAssigneeIds([]);
-    setNeedsReassignmentOnly(false);
-    setSearchQuery('');
-    setCurrentPage(1);
-  };
-
   const handleReassign = (caseId: string, currentAssigneeId: string) => {
     const newAssignee = pickRandomActiveAssignee(users, currentAssigneeId);
     if (!newAssignee) {
@@ -163,10 +167,6 @@ export const CaseListView = () => {
 
   const isLoading = casesQuery.isLoading || usersQuery.isLoading;
   const isError = casesQuery.isError || usersQuery.isError;
-  const hasActiveFilters =
-    selectedAssigneeIds.length > 0 ||
-    needsReassignmentOnly ||
-    searchQuery.trim().length > 0;
   const showReassignmentBanner =
     needsReassignmentCount > 0 && !isBannerDismissed;
 
@@ -178,75 +178,44 @@ export const CaseListView = () => {
 
       <Flex
         sx={{
-          justifyContent: 'space-between',
           alignItems: 'center',
           gap: 'spacing-md',
-          mt: 'spacing-2xs',
+          mt: 'spacing-md',
           mb: 'spacing-md',
         }}
       >
-        <Text sx={{ color: 'textMuted' }}>{openCasesCount} open cases</Text>
-
-        <Flex sx={{ alignItems: 'center', gap: 'spacing-md' }}>
-          <Button
-            type="button"
-            onClick={handleClearFilters}
-            disabled={!hasActiveFilters}
-            sx={{
-              variant: 'text.default',
-              color: 'textLink',
-              textDecoration: 'underline',
-              bg: 'transparent',
-              border: 'none',
-              borderRadius: 0,
-              fontWeight: 'font-weight-normal',
-              cursor: 'pointer',
-              p: 0,
-              height: 'auto',
-              minWidth: 'auto',
-              '&:hover, &:focus-visible': {
-                bg: 'transparent',
-              },
-              '&:disabled': {
-                color: 'textDisabled',
-                cursor: 'not-allowed',
-                textDecoration: 'none',
-              },
-            }}
-          >
-            Clear filters
-          </Button>
-          <input
-            type="text"
-            placeholder="Search cases"
-            aria-label="Search cases"
-            value={searchQuery}
-            onChange={(event) => handleSearchChange(event.target.value)}
-            sx={{
-              width: '260px',
-              fontSize: 'font-size-md',
-              fontFamily: 'body',
-              color: 'neutral900',
-              bg: 'white',
-              borderWidth: 'border-width-sm',
-              borderStyle: 'solid',
-              borderColor: 'inputBorder',
-              borderRadius: 'radius-full',
-              py: 'spacing-xs',
-              px: 'spacing-md',
-              '&::placeholder': {
-                color: 'inputTextPlaceholder',
-              },
-            }}
-          />
-          <CaseFilters
-            users={users}
-            selectedAssigneeIds={selectedAssigneeIds}
-            onAssigneeChange={handleAssigneeFilterChange}
-            needsReassignmentOnly={needsReassignmentOnly}
-            onNeedsReassignmentOnlyChange={handleNeedsReassignmentOnlyChange}
-          />
-        </Flex>
+        <input
+          type="text"
+          placeholder="Search cases"
+          aria-label="Search cases"
+          value={searchQuery}
+          onChange={(event) => handleSearchChange(event.target.value)}
+          sx={{
+            width: '260px',
+            fontSize: 'font-size-md',
+            fontFamily: 'body',
+            color: 'neutral900',
+            bg: 'white',
+            borderWidth: 'border-width-sm',
+            borderStyle: 'solid',
+            borderColor: 'inputBorder',
+            borderRadius: 'radius-full',
+            py: 'spacing-xs',
+            px: 'spacing-md',
+            '&::placeholder': {
+              color: 'inputTextPlaceholder',
+            },
+          }}
+        />
+        <CaseFilters
+          users={users}
+          selectedAssigneeIds={selectedAssigneeIds}
+          onAssigneeChange={handleAssigneeFilterChange}
+          selectedStatuses={selectedStatuses}
+          onStatusChange={handleStatusFilterChange}
+          needsReassignmentOnly={needsReassignmentOnly}
+          onNeedsReassignmentOnlyChange={handleNeedsReassignmentOnlyChange}
+        />
       </Flex>
 
       {showReassignmentBanner && (
@@ -307,18 +276,17 @@ export const CaseListView = () => {
       )}
 
       {!isLoading && !isError && (
-        <>
-          <CasesTable
-            cases={pagedCases}
-            usersById={usersById}
-            onReassign={handleReassign}
-          />
-          <Pagination
-            currentPage={safePage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
-        </>
+        <CasesTable
+          cases={pagedCases}
+          usersById={usersById}
+          onReassign={handleReassign}
+          currentPage={safePage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalCount={totalCount}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+        />
       )}
     </Box>
   );

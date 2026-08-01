@@ -1,27 +1,18 @@
 import { useRef, useState } from 'react';
-import { Box, Button, Checkbox, Label, Text } from 'theme-ui';
+import { Badge, Box, Button, Checkbox, Flex, Label, Text } from 'theme-ui';
 import { UsersApi, useOnClickOutside } from 'shared';
+
+import { ALL_CASE_STATUSES } from '../utils/caseStatus';
 
 interface CaseFiltersProps {
   users: UsersApi.User[];
   selectedAssigneeIds: string[];
   onAssigneeChange: (assigneeIds: string[]) => void;
+  selectedStatuses: string[];
+  onStatusChange: (statuses: string[]) => void;
   needsReassignmentOnly: boolean;
   onNeedsReassignmentOnlyChange: (value: boolean) => void;
 }
-
-const fieldsetStyles = {
-  border: 'none',
-  p: 0,
-  m: 0,
-  '& + &': {
-    mt: 'spacing-sm',
-    pt: 'spacing-sm',
-    borderTopWidth: 'border-width-sm',
-    borderTopStyle: 'solid',
-    borderTopColor: 'borderLight',
-  },
-};
 
 const legendStyles = {
   variant: 'text.bold',
@@ -33,6 +24,17 @@ const legendStyles = {
   mb: 'spacing-xs',
 };
 
+// used by any section that sits below another one, to visually separate it
+const sectionHeadingWithDividerStyles = {
+  ...legendStyles,
+  width: '100%',
+  pb: 'spacing-xs',
+  mb: 'spacing-xs',
+  borderBottomWidth: 'border-width-sm',
+  borderBottomStyle: 'solid' as const,
+  borderBottomColor: 'borderLight',
+};
+
 const optionLabelStyles = {
   display: 'flex',
   alignItems: 'center',
@@ -41,10 +43,17 @@ const optionLabelStyles = {
   cursor: 'pointer',
 };
 
+const toggleId = (ids: string[], id: string): string[] =>
+  ids.includes(id)
+    ? ids.filter((existingId) => existingId !== id)
+    : [...ids, id];
+
 export const CaseFilters = ({
   users,
   selectedAssigneeIds,
   onAssigneeChange,
+  selectedStatuses,
+  onStatusChange,
   needsReassignmentOnly,
   onNeedsReassignmentOnlyChange,
 }: CaseFiltersProps) => {
@@ -53,17 +62,16 @@ export const CaseFilters = ({
 
   useOnClickOutside(containerRef, () => setIsOpen(false));
 
-  const toggleAssignee = (assigneeId: string) => {
-    const isSelected = selectedAssigneeIds.includes(assigneeId);
-    onAssigneeChange(
-      isSelected
-        ? selectedAssigneeIds.filter((id) => id !== assigneeId)
-        : [...selectedAssigneeIds, assigneeId],
-    );
+  const handleClearAll = () => {
+    onAssigneeChange([]);
+    onStatusChange([]);
+    onNeedsReassignmentOnlyChange(false);
   };
 
   const activeFilterCount =
-    selectedAssigneeIds.length + (needsReassignmentOnly ? 1 : 0);
+    selectedAssigneeIds.length +
+    selectedStatuses.length +
+    (needsReassignmentOnly ? 1 : 0);
 
   return (
     <Box ref={containerRef} sx={{ position: 'relative' }}>
@@ -89,6 +97,8 @@ export const CaseFilters = ({
             position: 'absolute',
             right: 0,
             top: 'calc(100% + 4px)',
+            display: 'flex',
+            flexDirection: 'column',
             bg: 'white',
             borderWidth: 'border-width-sm',
             borderStyle: 'solid',
@@ -97,45 +107,120 @@ export const CaseFilters = ({
             boxShadow: 'shadow-sm',
             zIndex: 'inputModal',
             minWidth: '260px',
-            maxHeight: '360px',
-            overflowY: 'auto',
-            p: 'spacing-sm',
+            maxHeight: '400px',
+            overflow: 'visible',
           }}
         >
-          <Box as="fieldset" sx={fieldsetStyles}>
-            <Box as="legend" sx={legendStyles}>
-              Quick filters
+          <Box sx={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
+            <Box
+              role="group"
+              aria-labelledby="case-filters-quick-heading"
+              sx={{ p: 'spacing-sm' }}
+            >
+              <Box id="case-filters-quick-heading" sx={legendStyles}>
+                Quick filters
+              </Box>
+              <Label sx={optionLabelStyles}>
+                <Checkbox
+                  checked={needsReassignmentOnly}
+                  onChange={(event) =>
+                    onNeedsReassignmentOnlyChange(event.target.checked)
+                  }
+                />
+                Needs reassignment
+              </Label>
             </Box>
-            <Label sx={optionLabelStyles}>
-              <Checkbox
-                checked={needsReassignmentOnly}
-                onChange={(event) =>
-                  onNeedsReassignmentOnlyChange(event.target.checked)
-                }
-              />
-              Needs reassignment
-            </Label>
+
+            <Box
+              role="group"
+              aria-labelledby="case-filters-assignee-heading"
+              sx={{ p: 'spacing-sm', pt: 0 }}
+            >
+              <Box
+                id="case-filters-assignee-heading"
+                sx={sectionHeadingWithDividerStyles}
+              >
+                Assignee
+              </Box>
+              {users.map((user) => (
+                <Label key={user.identifier} sx={optionLabelStyles}>
+                  <Checkbox
+                    checked={selectedAssigneeIds.includes(user.identifier)}
+                    onChange={() =>
+                      onAssigneeChange(
+                        toggleId(selectedAssigneeIds, user.identifier),
+                      )
+                    }
+                  />
+                  {user.name}
+                  {!user.active && (
+                    <Badge variant="neutral" sx={{ fontSize: '12px' }}>
+                      Inactive
+                    </Badge>
+                  )}
+                </Label>
+              ))}
+            </Box>
+
+            <Box
+              role="group"
+              aria-labelledby="case-filters-status-heading"
+              sx={{ p: 'spacing-sm', pt: 0 }}
+            >
+              <Box
+                id="case-filters-status-heading"
+                sx={sectionHeadingWithDividerStyles}
+              >
+                Status
+              </Box>
+              {ALL_CASE_STATUSES.map((option) => (
+                <Label key={option.status} sx={optionLabelStyles}>
+                  <Checkbox
+                    checked={selectedStatuses.includes(option.status)}
+                    onChange={() =>
+                      onStatusChange(toggleId(selectedStatuses, option.status))
+                    }
+                  />
+                  {option.label}
+                </Label>
+              ))}
+            </Box>
           </Box>
 
-          <Box as="fieldset" sx={fieldsetStyles}>
-            <Box as="legend" sx={legendStyles}>
-              Assignee
-            </Box>
-            {users.map((user) => (
-              <Label key={user.identifier} sx={optionLabelStyles}>
-                <Checkbox
-                  checked={selectedAssigneeIds.includes(user.identifier)}
-                  onChange={() => toggleAssignee(user.identifier)}
-                />
-                {user.name}
-                {!user.active && (
-                  <Text sx={{ color: 'textMuted', fontSize: '12px' }}>
-                    (Inactive)
-                  </Text>
-                )}
-              </Label>
-            ))}
-          </Box>
+          <Flex
+            sx={{
+              flexShrink: 0,
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 'spacing-sm',
+              bg: 'bgPanel',
+              borderTopWidth: 'border-width-sm',
+              borderTopStyle: 'solid',
+              borderTopColor: 'borderLight',
+              px: 'spacing-sm',
+              py: 'spacing-sm',
+            }}
+          >
+            <Text sx={{ color: 'textMuted', fontSize: '12px' }}>
+              {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}{' '}
+              applied
+            </Text>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={activeFilterCount === 0}
+              onClick={handleClearAll}
+              sx={{
+                height: 'auto',
+                minWidth: 'auto',
+                fontSize: '12px',
+                py: 'spacing-2xs',
+                px: 'spacing-sm',
+              }}
+            >
+              Clear all
+            </Button>
+          </Flex>
         </Box>
       )}
     </Box>

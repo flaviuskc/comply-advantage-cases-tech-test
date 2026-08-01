@@ -17,6 +17,24 @@ const openFilters = () => {
 const getPageInput = () =>
   screen.getByRole('textbox', { name: 'Page number' }) as HTMLInputElement;
 
+// the "Showing X–Y of Z cases" text is split across nested elements, so
+// match on normalized full text content rather than an exact string
+const getRangeSummaryText = () =>
+  screen
+    .getByText(
+      (_, element) =>
+        /^Showing .* of \d+ cases$/.test(
+          element?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+        ) &&
+        // pick the innermost matching element, not an ancestor that also
+        // contains this text as part of a larger textContent
+        Array.from(element?.children ?? []).every(
+          (child) => !/of \d+ cases$/.test(child.textContent ?? ''),
+        ),
+    )
+    .textContent?.replace(/\s+/g, ' ')
+    .trim() ?? '';
+
 describe('CaseListView', () => {
   it('renders a Cases heading', async () => {
     renderWithQueryClient(<CaseListView />);
@@ -62,6 +80,19 @@ describe('CaseListView', () => {
     await screen.findByText('Moen, Mraz and Adams');
     expect(getPageInput()).toHaveValue('2');
     expect(screen.queryByText('Reilly - Hamill')).not.toBeInTheDocument();
+  });
+
+  it('shows the current page range alongside the pagination controls', async () => {
+    renderWithQueryClient(<CaseListView />);
+
+    await screen.findByText('Reilly - Hamill');
+    expect(screen.getByText('1–10')).toBeInTheDocument();
+    expect(getRangeSummaryText()).toBe('Showing 1–10 of 200 cases');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+
+    await screen.findByText('Moen, Mraz and Adams');
+    expect(screen.getByText('11–20')).toBeInTheDocument();
   });
 
   it('jumps to the first and last page', async () => {
@@ -123,11 +154,29 @@ describe('CaseListView', () => {
       screen.queryByText('Witting, Goyette and Bruen'),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), {
+      target: { value: '' },
+    });
 
     expect(
       await screen.findByText('Witting, Goyette and Bruen'),
     ).toBeInTheDocument();
+  });
+
+  it('shows the count of cases currently matching the filters, not a fixed total', async () => {
+    renderWithQueryClient(<CaseListView />);
+
+    await screen.findByText('Reilly - Hamill');
+    expect(getRangeSummaryText()).toBe('Showing 1–10 of 200 cases');
+
+    openFilters();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Elijah Kirlin/ }));
+
+    const summary = getRangeSummaryText();
+    expect(summary).not.toContain('of 200 cases');
+    const filteredCount = Number(summary.match(/of (\d+) cases$/)?.[1]);
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(200);
   });
 
   it('filters the cases table by the selected assignee(s)', async () => {
@@ -146,7 +195,26 @@ describe('CaseListView', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('clears the assignee filter via "Clear filters"', async () => {
+  it('filters the cases table by the selected status(es)', async () => {
+    renderWithQueryClient(<CaseListView />);
+
+    await screen.findByText('Reilly - Hamill');
+    expect(screen.getByText('Witting, Goyette and Bruen')).toBeInTheDocument();
+
+    openFilters();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'On Hold' }));
+
+    // "Reilly - Hamill" is On Hold, "Witting, Goyette and Bruen" is Resolved
+    expect(screen.getByText('Reilly - Hamill')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Witting, Goyette and Bruen'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Filters \(1\)/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('clears the assignee filter via "Clear all"', async () => {
     renderWithQueryClient(<CaseListView />);
 
     await screen.findByText('Reilly - Hamill');
@@ -157,10 +225,32 @@ describe('CaseListView', () => {
       screen.queryByText('Witting, Goyette and Bruen'),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
 
     expect(
       await screen.findByText('Witting, Goyette and Bruen'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the number of filters applied in the dropdown footer', async () => {
+    renderWithQueryClient(<CaseListView />);
+
+    await screen.findByText('Reilly - Hamill');
+    openFilters();
+
+    expect(screen.getByText('0 filters applied')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Elijah Kirlin/ }));
+    expect(screen.getByText('1 filter applied')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeEnabled();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Needs reassignment' }),
+    );
+    expect(screen.getByText('2 filters applied')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Filters \(2\)/ }),
     ).toBeInTheDocument();
   });
 
