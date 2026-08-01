@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Badge, Box, Button } from 'theme-ui';
 import { CasesApi, UsersApi } from 'shared';
 
@@ -36,6 +37,8 @@ export const CasesTable = ({
   rangeStart,
   rangeEnd,
 }: CasesTableProps) => {
+  const navigate = useNavigate();
+
   if (cases.length === 0) {
     return (
       <Box sx={{ py: 'spacing-xl', textAlign: 'center', color: 'textMuted' }}>
@@ -84,11 +87,29 @@ export const CasesTable = ({
             const canReassign =
               isAssigneeInactive && isReassignableStatus(caseItem.status);
 
+            const goToDetail = () => navigate(`/cases/${caseItem.identifier}`);
+
             return (
               <Box
                 as="tr"
                 key={caseItem.identifier}
-                sx={canReassign ? { bg: 'brand100' } : undefined}
+                tabIndex={0}
+                role="link"
+                aria-label={`View case ${caseItem.name}`}
+                onClick={goToDetail}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    goToDetail();
+                  }
+                }}
+                sx={{
+                  cursor: 'pointer',
+                  bg: canReassign ? 'brand100' : undefined,
+                  '&:hover': {
+                    bg: canReassign ? 'brand100' : 'bgPanel',
+                  },
+                }}
               >
                 <Box as="td" sx={cellStyles}>
                   {caseItem.name}
@@ -132,9 +153,10 @@ export const CasesTable = ({
                         type="button"
                         variant="outline"
                         aria-label={`Reassign case ${caseItem.name}`}
-                        onClick={() =>
-                          onReassign(caseItem.identifier, caseItem.assignee_id)
-                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onReassign(caseItem.identifier, caseItem.assignee_id);
+                        }}
                         sx={{
                           flexShrink: 0,
                           height: 'auto',

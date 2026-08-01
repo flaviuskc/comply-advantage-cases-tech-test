@@ -1,5 +1,7 @@
-import { screen, fireEvent, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
 
 import { server } from '../../mockServer';
@@ -332,6 +334,64 @@ describe('CaseListView', () => {
     expect(
       within(updatedRow).queryByText('Willard Glover'),
     ).not.toBeInTheDocument();
+  });
+
+  it('navigates to the case detail page when a row is clicked', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/cases']}>
+          <Routes>
+            <Route path="/cases" element={<CaseListView />} />
+            <Route
+              path="/cases/:caseId"
+              element={<div>Case detail page</div>}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const row = (await screen.findByText('Reilly - Hamill')).closest(
+      'tr',
+    ) as HTMLElement;
+    fireEvent.click(row);
+
+    expect(await screen.findByText('Case detail page')).toBeInTheDocument();
+  });
+
+  it('does not navigate when the Reassign button is clicked', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/cases']}>
+          <Routes>
+            <Route path="/cases" element={<CaseListView />} />
+            <Route
+              path="/cases/:caseId"
+              element={<div>Case detail page</div>}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const row = (await screen.findByText('Conn and Sons')).closest(
+      'tr',
+    ) as HTMLElement;
+
+    fireEvent.click(
+      within(row).getByRole('button', { name: 'Reassign case Conn and Sons' }),
+    );
+
+    expect(screen.queryByText('Case detail page')).not.toBeInTheDocument();
+    expect(screen.getByText('Conn and Sons')).toBeInTheDocument();
   });
 
   it('shows an error message if the cases request fails', async () => {

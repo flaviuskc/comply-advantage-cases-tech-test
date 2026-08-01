@@ -85,6 +85,8 @@ export const CaseFilters = ({
           borderWidth: 'border-width-sm',
           borderStyle: 'solid',
           borderColor: 'inputBorder',
+          px: 'spacing-md',
+          py: 'spacing-xs',
         }}
       >
         Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
