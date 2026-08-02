@@ -21,8 +21,6 @@ const CloseIcon = () => (
   </svg>
 );
 
-// Sidebar (>=1024px) vs header+drawer (<1024px) - kept in one constant so
-// the two layouts can't drift apart.
 export const DESKTOP_MEDIA_QUERY = '@media (min-width: 1024px)';
 
 interface NavItemProps {
@@ -98,8 +96,6 @@ const DesktopSidebar = () => (
 const MobileHeader = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // close on Escape and lock background scroll while the drawer is open,
-  // matching standard modal behaviour
   useEffect(() => {
     if (!isMenuOpen) {
       return;
@@ -154,8 +150,6 @@ const MobileHeader = () => {
         <Image src={logo} sx={{ height: '24px' }} />
       </Flex>
 
-      {/* backdrop - always mounted so opacity/transform can transition on
-          both open and close, rather than popping in/out instantly */}
       <Box
         onClick={() => setIsMenuOpen(false)}
         aria-hidden="true"

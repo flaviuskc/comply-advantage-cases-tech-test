@@ -8,8 +8,6 @@ import { CasesTable } from './components/CasesTable';
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 
-// stable reference so `?? EMPTY_USERS` doesn't create a new array identity
-// on every render while the query has no data yet
 const EMPTY_USERS: UsersApi.User[] = [];
 
 export const CaseListView = () => {
@@ -25,9 +23,6 @@ export const CaseListView = () => {
     SEARCH_DEBOUNCE_MS,
   );
 
-  // reset back to page 1 once a debounced search actually takes effect,
-  // rather than on every keystroke (which would also fire a page=1 request
-  // using the not-yet-debounced search term)
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearchQuery]);
@@ -40,9 +35,7 @@ export const CaseListView = () => {
     search: debouncedSearchQuery,
     needsReassignmentOnly,
   });
-  // The reassignment banner's count is independent of the current filters/
-  // page, so it's a separate lightweight request (page_size=1 - we only
-  // need `total_count`) rather than derived from the main query's data.
+  
   const needsReassignmentCountQuery = CasesApi.useGetCasesQuery({
     pageSize: 1,
     needsReassignmentOnly: true,
@@ -80,9 +73,6 @@ export const CaseListView = () => {
   };
 
   const handleReassign = (caseId: string, currentAssigneeId: string) => {
-    // There's no write endpoint for this in the mock API - reassignment is
-    // out of scope for this exercise, so this is intentionally a no-op
-    // beyond logging the action that would be sent to a real backend.
     console.log(
       'Reassign case',
       caseId,

@@ -1,4 +1,4 @@
-import { isReassignableCaseStatus } from 'shared';
+import { isReassignableCaseStatus } from "shared";
 
 export interface CaseStatusConfig {
   label: string;
@@ -6,21 +6,21 @@ export interface CaseStatusConfig {
 }
 
 const DEFAULT_STATUS_CONFIG: CaseStatusConfig = {
-  label: '',
-  badgeVariant: 'neutral',
+  label: "",
+  badgeVariant: "neutral",
 };
 
 const CASE_STATUS_CONFIG: Record<string, CaseStatusConfig> = {
-  CASE_NOT_STARTED: { label: 'Not Started', badgeVariant: 'neutral' },
-  CASE_IN_PROGRESS: { label: 'In Progress', badgeVariant: 'info' },
-  CASE_ON_HOLD: { label: 'On Hold', badgeVariant: 'warning' },
+  CASE_NOT_STARTED: { label: "Not Started", badgeVariant: "neutral" },
+  CASE_IN_PROGRESS: { label: "In Progress", badgeVariant: "info" },
+  CASE_ON_HOLD: { label: "On Hold", badgeVariant: "warning" },
   CASE_RESOLVED_RISK_DETECTED: {
-    label: 'Resolved - Risk Detected',
-    badgeVariant: 'negative',
+    label: "Resolved - Risk Detected",
+    badgeVariant: "negative",
   },
   CASE_RESOLVED_NO_RISK_DETECTED: {
-    label: 'Resolved - No Risk Detected',
-    badgeVariant: 'positive',
+    label: "Resolved - No Risk Detected",
+    badgeVariant: "positive",
   },
 };
 
@@ -32,15 +32,8 @@ export interface CaseStatusOption {
   label: string;
 }
 
-// single source of truth for "every status a case can have" - used to
-// populate the status filter so it can't drift out of sync with the
-// label/badge mapping above
 export const ALL_CASE_STATUSES: CaseStatusOption[] = Object.entries(
   CASE_STATUS_CONFIG,
 ).map(([status, config]) => ({ status, label: config.label }));
 
-// Resolved cases (risk detected / no risk detected) are closed out, so
-// reassignment doesn't apply to them - only cases still open in some form.
-// The actual status set lives in `shared` since the mock API needs it too,
-// to compute the "needs reassignment" filter server-side.
 export const isReassignableStatus = isReassignableCaseStatus;

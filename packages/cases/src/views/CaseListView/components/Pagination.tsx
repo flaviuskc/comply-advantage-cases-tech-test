@@ -49,10 +49,6 @@ const ChevronsRightIcon = () => (
   </svg>
 );
 
-// the shared `icon` button variant inherits button-height/px-lg from
-// getCommonButtonStyles (sized for text buttons) - overridden locally
-// rather than in the shared variant, since other consumers of `icon` may
-// rely on that sizing
 const iconButtonStyles = {
   height: 'auto',
   minWidth: 'auto',
@@ -70,9 +66,6 @@ export const Pagination = ({
 }: PaginationProps) => {
   const [inputValue, setInputValue] = useState(String(currentPage));
 
-  // keep the input in sync when the page changes from elsewhere (Prev/Next/
-  // First/Last buttons), but not while the user is actively typing a value
-  // we haven't committed yet
   useEffect(() => {
     setInputValue(String(currentPage));
   }, [currentPage]);

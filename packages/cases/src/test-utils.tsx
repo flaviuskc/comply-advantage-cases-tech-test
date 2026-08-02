@@ -15,9 +15,6 @@ export const renderWithQueryClient = (ui: ReactElement): RenderResult => {
   );
 };
 
-// For views that read route params (e.g. CaseDetailView's `caseId`), render
-// them behind a matching <Route> so useParams() resolves like it would in
-// the real router.
 export const renderWithRoute = (
   ui: ReactElement,
   { path, initialEntry }: { path: string; initialEntry: string },

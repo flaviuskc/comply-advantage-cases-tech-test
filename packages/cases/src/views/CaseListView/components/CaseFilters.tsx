@@ -24,7 +24,6 @@ const legendStyles = {
   mb: 'spacing-xs',
 };
 
-// used by any section that sits below another one, to visually separate it
 const sectionHeadingWithDividerStyles = {
   ...legendStyles,
   width: '100%',
