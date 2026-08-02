@@ -1,3 +1,5 @@
+import { User } from "../users/types";
+
 export interface Case {
   identifier: string;
   assignee_id: string;
@@ -14,10 +16,7 @@ export type GetCasesResponse = {
   self: string;
 };
 
-export interface User {
-  identifier: string;
-  name: string;
-  active: boolean;
+export interface GetCaseByIdResponse {
+  case: Case;
+  assignee: User | null;
 }
-
-export type GetUsersResponse = User[];

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ThemeUIStyleObject } from 'theme-ui';
-type ButtonVariants = 'primary' | 'secondary' | 'tertiary' | 'icon';
+type ButtonVariants = 'primary' | 'secondary' | 'tertiary' | 'icon' | 'outline';
 
 const getCommonButtonStyles: ThemeUIStyleObject = {
   fontWeight: 'font-weight-semi-bold',
@@ -77,6 +77,18 @@ export const buttonVariants: Record<ButtonVariants, ThemeUIStyleObject> = {
       '&:hover': {
         bg: 'neutral100',
       },
+    },
+  },
+  outline: {
+    ...getCommonButtonStyles,
+    color: 'neutral900',
+    bg: 'white',
+    borderWidth: 'border-width-sm',
+    borderStyle: 'solid',
+    borderColor: 'neutral900',
+    minWidth: 'auto',
+    '&:hover, &:focus-visible': {
+      bg: 'neutral100',
     },
   },
 };

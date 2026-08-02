@@ -1,4 +1,4 @@
-import { Case } from './types';
+import { Case } from '../api/cases/types';
 
 export const cases: Case[] = [
   {

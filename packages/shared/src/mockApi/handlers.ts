@@ -1,9 +1,17 @@
-import { http, HttpResponse, StrictRequest, DefaultBodyType } from 'msw';
+import {
+  http,
+  HttpResponse,
+  StrictRequest,
+  DefaultBodyType,
+  PathParams,
+} from 'msw';
 import example from './example.json';
 import { users } from './users';
 import { cases } from './cases';
 
-import { GetCasesResponse, GetUsersResponse } from './types';
+import { GetCaseByIdResponse, GetCasesResponse } from '../api/cases/types';
+import { GetUsersResponse } from '../api/users/types';
+import { isReassignableCaseStatus } from '../utils/caseStatus';
 
 export const casesHandler = ({
   request,
@@ -14,37 +22,77 @@ export const casesHandler = ({
 
   const page_size = url.searchParams.get('page_size');
   const page_number = url.searchParams.get('page_number');
+  const assigneeIds = url.searchParams.getAll('assignee_id');
+  const statuses = url.searchParams.getAll('status');
+  const search = url.searchParams.get('search')?.trim().toLowerCase() ?? '';
+  const needsReassignmentOnly =
+    url.searchParams.get('needs_reassignment') === 'true';
 
   const page = parseInt(page_number as string, 10) || 1;
   const size = parseInt(page_size as string, 10) || 25;
 
+  const usersById = new Map(users.map((user) => [user.identifier, user]));
+
+  const filteredCases = cases.filter((caseItem) => {
+    if (assigneeIds.length > 0 && !assigneeIds.includes(caseItem.assignee_id)) {
+      return false;
+    }
+    if (statuses.length > 0 && !statuses.includes(caseItem.status)) {
+      return false;
+    }
+    if (search && !caseItem.name.toLowerCase().includes(search)) {
+      return false;
+    }
+    if (needsReassignmentOnly) {
+      const assignee = usersById.get(caseItem.assignee_id);
+      if (
+        !isReassignableCaseStatus(caseItem.status) ||
+        !assignee ||
+        assignee.active
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   const start = (page - 1) * size;
-
-  if (start > cases.length - 1) {
-    return HttpResponse.json({
-      cases: [],
-      total_count: 0,
-      first: '',
-      next: '',
-      prev: '',
-      self: '',
-    });
-  }
-
   const end = start + size;
-
-  const casesArray = cases.slice(start, end);
-
-  const hasNext = end < cases.length;
+  const casesArray = filteredCases.slice(start, end);
+  const hasNext = end < filteredCases.length;
 
   return HttpResponse.json({
     cases: casesArray,
-    total_count: casesArray.length,
+    total_count: filteredCases.length,
     first: '/api/cases?page_number=1',
     next: hasNext ? `/api/cases?page_number=${page + 1}` : '',
     prev: page > 1 ? `/api/cases?page_number=${page - 1}` : '',
     self: `/api/cases?page_number=${page}`,
   } as GetCasesResponse);
+};
+
+type CaseByIdResponseBody = GetCaseByIdResponse | { message: string };
+
+export const caseByIdHandler = ({
+  params,
+}: {
+  params: PathParams;
+}): ReturnType<typeof HttpResponse.json<CaseByIdResponseBody>> => {
+  const caseItem = cases.find(
+    (candidate) => candidate.identifier === params.id,
+  );
+
+  if (!caseItem) {
+    return HttpResponse.json({ message: 'Case not found' }, { status: 404 });
+  }
+
+  const assignee =
+    users.find((user) => user.identifier === caseItem.assignee_id) ?? null;
+
+  return HttpResponse.json({
+    case: caseItem,
+    assignee,
+  });
 };
 
 export const apiHandlers = [
@@ -57,4 +105,6 @@ export const apiHandlers = [
   }),
 
   http.get('/api/cases', casesHandler),
+
+  http.get('/api/cases/:id', caseByIdHandler),
 ];

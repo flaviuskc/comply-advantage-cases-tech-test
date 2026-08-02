@@ -7,13 +7,16 @@
   "main": "./src/index.tsx",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "test": "vitest --config='../../vitest.config.js' --watch=false",
-    "test:watch": "vitest --config='../../vitest.config.js'",
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "test": "vitest --config=\"../../vitest.config.js\" --watch=false",
+    "test:watch": "vitest --config=\"../../vitest.config.js\"",
+    "build": "rimraf dist && tsc -p tsconfig.build.json",
     "lint": "eslint ./src --ext .ts,.tsx",
     "lint:fix": "eslint ./src --ext .ts,.tsx --fix"
   },
   "dependencies": {
     "shared": "workspace:*"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.5"
   }
 }
