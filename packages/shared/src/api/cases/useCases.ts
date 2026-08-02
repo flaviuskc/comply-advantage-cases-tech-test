@@ -1,7 +1,7 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import fetchTyped from '../../utils/fetchTyped';
-import { GetCasesResponse } from './types';
+import fetchTyped from "../../utils/fetchTyped";
+import { GetCaseByIdResponse, GetCasesResponse } from "./types";
 
 export interface UseGetCasesQueryParams {
   pageNumber?: number;
@@ -17,12 +17,12 @@ export const useGetCasesQuery = ({
   pageSize = 25,
   assigneeIds = [],
   statuses = [],
-  search = '',
+  search = "",
   needsReassignmentOnly = false,
 }: UseGetCasesQueryParams = {}) => {
   return useQuery({
     queryKey: [
-      'cases',
+      "cases",
       pageNumber,
       pageSize,
       assigneeIds,
@@ -32,20 +32,37 @@ export const useGetCasesQuery = ({
     ],
     queryFn: () => {
       const params = new URLSearchParams();
-      params.set('page_number', String(pageNumber));
-      params.set('page_size', String(pageSize));
-      assigneeIds.forEach((id) => params.append('assignee_id', id));
-      statuses.forEach((status) => params.append('status', status));
+      params.set("page_number", String(pageNumber));
+      params.set("page_size", String(pageSize));
+      assigneeIds.forEach((id) => params.append("assignee_id", id));
+      statuses.forEach((status) => params.append("status", status));
       if (search) {
-        params.set('search', search);
+        params.set("search", search);
       }
       if (needsReassignmentOnly) {
-        params.set('needs_reassignment', 'true');
+        params.set("needs_reassignment", "true");
       }
       return fetchTyped<GetCasesResponse>(`/api/cases?${params}`, {});
     },
-    // keep the previous page/filter's results on screen while a new
-    // request is in flight, instead of collapsing to a loading state
     placeholderData: keepPreviousData,
+  });
+};
+
+export const useGetCaseByIdQuery = (caseId: string | undefined) => {
+  return useQuery({
+    queryKey: ["case", caseId],
+    queryFn: async (): Promise<GetCaseByIdResponse | null> => {
+      const url = `${globalThis.location.origin}/api/cases/${caseId}`;
+      const response = await fetch(url);
+
+      if (response.status === 404) {
+        return null;
+      }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
+    enabled: !!caseId,
   });
 };

@@ -34,7 +34,7 @@ describe('CaseDetailView', () => {
   });
 
   it('shows an error message if the request fails', async () => {
-    server.use(http.get('/api/cases', () => HttpResponse.error()));
+    server.use(http.get('/api/cases/:id', () => HttpResponse.error()));
 
     renderWithRoute(<CaseDetailView />, {
       path: '/cases/:caseId',

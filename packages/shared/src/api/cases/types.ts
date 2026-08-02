@@ -1,3 +1,5 @@
+import { User } from "../users/types";
+
 export interface Case {
   identifier: string;
   assignee_id: string;
@@ -13,3 +15,8 @@ export type GetCasesResponse = {
   prev: string;
   self: string;
 };
+
+export interface GetCaseByIdResponse {
+  case: Case;
+  assignee: User | null;
+}

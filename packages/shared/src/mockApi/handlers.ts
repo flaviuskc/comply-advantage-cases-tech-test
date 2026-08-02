@@ -1,9 +1,15 @@
-import { http, HttpResponse, StrictRequest, DefaultBodyType } from 'msw';
+import {
+  http,
+  HttpResponse,
+  StrictRequest,
+  DefaultBodyType,
+  PathParams,
+} from 'msw';
 import example from './example.json';
 import { users } from './users';
 import { cases } from './cases';
 
-import { GetCasesResponse } from '../api/cases/types';
+import { GetCaseByIdResponse, GetCasesResponse } from '../api/cases/types';
 import { GetUsersResponse } from '../api/users/types';
 import { isReassignableCaseStatus } from '../utils/caseStatus';
 
@@ -65,6 +71,30 @@ export const casesHandler = ({
   } as GetCasesResponse);
 };
 
+type CaseByIdResponseBody = GetCaseByIdResponse | { message: string };
+
+export const caseByIdHandler = ({
+  params,
+}: {
+  params: PathParams;
+}): ReturnType<typeof HttpResponse.json<CaseByIdResponseBody>> => {
+  const caseItem = cases.find(
+    (candidate) => candidate.identifier === params.id,
+  );
+
+  if (!caseItem) {
+    return HttpResponse.json({ message: 'Case not found' }, { status: 404 });
+  }
+
+  const assignee =
+    users.find((user) => user.identifier === caseItem.assignee_id) ?? null;
+
+  return HttpResponse.json({
+    case: caseItem,
+    assignee,
+  });
+};
+
 export const apiHandlers = [
   http.get('/api/example', () => {
     return HttpResponse.json(example);
@@ -75,4 +105,6 @@ export const apiHandlers = [
   }),
 
   http.get('/api/cases', casesHandler),
+
+  http.get('/api/cases/:id', caseByIdHandler),
 ];

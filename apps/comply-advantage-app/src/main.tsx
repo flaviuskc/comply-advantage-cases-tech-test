@@ -47,9 +47,11 @@ const router = createBrowserRouter([
   },
 ]);
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement,
-);
+const container = document.getElementById('root') as HTMLElement & {
+  _reactRoot?: ReactDOM.Root;
+};
+const root = container._reactRoot ?? ReactDOM.createRoot(container);
+container._reactRoot = root;
 
 async function main() {
   await setupMocks();

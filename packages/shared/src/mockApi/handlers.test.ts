@@ -1,7 +1,7 @@
 import { cases } from './cases';
 import { users } from './users';
 import { vi } from 'vitest';
-import { casesHandler } from './handlers';
+import { casesHandler, caseByIdHandler } from './handlers';
 import { HttpResponse } from 'msw';
 
 vi.mock('msw');
@@ -324,6 +324,30 @@ describe('cases handler', () => {
           ),
         ).toBe(true);
       });
+    });
+  });
+
+  describe('caseByIdHandler', () => {
+    it('returns the case and its resolved assignee', () => {
+      // case-2 (0-based index 1): odd index -> inactive assignee, not a
+      // multiple of 5 -> CASE_IN_PROGRESS
+      caseByIdHandler({ params: { id: 'case-2' } });
+
+      expect(HttpResponse.json).toHaveBeenCalledTimes(1);
+      expect(HttpResponse.json).toHaveBeenCalledWith({
+        case: cases[1],
+        assignee: users[1],
+      });
+    });
+
+    it('returns 404 for an unknown case id', () => {
+      caseByIdHandler({ params: { id: 'does-not-exist' } });
+
+      expect(HttpResponse.json).toHaveBeenCalledTimes(1);
+      expect(HttpResponse.json).toHaveBeenCalledWith(
+        { message: 'Case not found' },
+        { status: 404 },
+      );
     });
   });
 });

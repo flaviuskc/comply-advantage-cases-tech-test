@@ -1,4 +1,4 @@
-const ignoredPathnames = ['/assets', '/favicon.ico', 'svg'];
+const ignoredPathnames = ['/assets', '/favicon.ico', 'svg', '/@fs/', '/@vite/'];
 
 export default async function setupMocks() {
   const { worker } = await import('./browser');

@@ -1,12 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
 import { Badge, Box, Flex, Heading, Text } from 'theme-ui';
-import { CasesApi, UsersApi } from 'shared';
+import { CasesApi } from 'shared';
 
 import { getCaseStatusConfig } from '../CaseListView/utils/caseStatus';
-
-// The mock API has no single-case endpoint (see packages/shared/src/mockApi/handlers.ts),
-// so we fetch the same full page CaseListView does and find the case client-side.
-const FETCH_ALL_PAGE_SIZE = 500;
 
 const fieldLabelStyles = {
   variant: 'text.bold',
@@ -20,20 +16,13 @@ const fieldLabelStyles = {
 export const CaseDetailView = () => {
   const { caseId } = useParams<{ caseId: string }>();
 
-  const casesQuery = CasesApi.useGetCasesQuery({
-    pageSize: FETCH_ALL_PAGE_SIZE,
-  });
-  const usersQuery = UsersApi.useGetUsersQuery();
+  const caseQuery = CasesApi.useGetCaseByIdQuery(caseId);
 
-  const isLoading = casesQuery.isLoading || usersQuery.isLoading;
-  const isError = casesQuery.isError || usersQuery.isError;
-
-  const caseItem = casesQuery.data?.cases.find(
-    (candidate) => candidate.identifier === caseId,
-  );
-  const assignee = usersQuery.data?.find(
-    (user) => user.identifier === caseItem?.assignee_id,
-  );
+  const isLoading = caseQuery.isLoading;
+  const isError = caseQuery.isError;
+  const caseItem = caseQuery.data?.case;
+  const assignee = caseQuery.data?.assignee;
+  const statusConfig = caseItem && getCaseStatusConfig(caseItem.status);
 
   return (
     <Box>
@@ -80,14 +69,21 @@ export const CaseDetailView = () => {
 
           <Box sx={{ mt: 'spacing-lg' }}>
             <Box sx={fieldLabelStyles}>Status</Box>
-            <Badge variant={getCaseStatusConfig(caseItem.status).badgeVariant}>
-              {getCaseStatusConfig(caseItem.status).label}
-            </Badge>
+            {statusConfig && (
+              <Badge variant={statusConfig.badgeVariant}>
+                {statusConfig.label}
+              </Badge>
+            )}
           </Box>
 
           <Box sx={{ mt: 'spacing-lg' }}>
             <Box sx={fieldLabelStyles}>Assignee</Box>
             <Text>{assignee ? assignee.name : 'Unassigned'}</Text>
+            {assignee && !assignee.active && (
+              <Text sx={{ color: 'textMuted', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+                Inactive user
+              </Text>
+            )}
           </Box>
         </Box>
       )}
