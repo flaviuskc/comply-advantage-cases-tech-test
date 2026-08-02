@@ -1,8 +1,25 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Box, Flex, Image, MenuButton } from 'theme-ui';
+import { Box, Button, Flex, Image, MenuButton } from 'theme-ui';
 
 import logo from '../../assets/comply_logo.svg';
+
+const CloseIcon = () => (
+  <svg
+    width={16}
+    height={16}
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable={false}
+  >
+    <path d="M3 3l10 10M13 3 3 13" />
+  </svg>
+);
 
 // Sidebar (>=1024px) vs header+drawer (<1024px) - kept in one constant so
 // the two layouts can't drift apart.
@@ -172,6 +189,22 @@ const MobileHeader = () => {
           transition: 'transform 200ms ease-in-out',
         }}
       >
+        <Flex sx={{ justifyContent: 'flex-end', mb: 'spacing-xs' }}>
+          <Button
+            type="button"
+            variant="icon"
+            aria-label="Close menu"
+            onClick={() => setIsMenuOpen(false)}
+            sx={{
+              height: 'auto',
+              minWidth: 'auto',
+              px: 'spacing-2xs',
+              py: 'spacing-2xs',
+            }}
+          >
+            <CloseIcon />
+          </Button>
+        </Flex>
         <NavLinks onNavigate={() => setIsMenuOpen(false)} />
       </Box>
     </Box>

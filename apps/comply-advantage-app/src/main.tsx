@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import AppThemeProvider from '../src/theme/AppThemeProvider';
 import App from './components/App/App.tsx';
+import Home from './components/Home/Home.tsx';
 import './styles-reset.css';
 
 import setupMocks from './mockApi/setupMocks';
@@ -22,6 +23,10 @@ const router = createBrowserRouter([
     path: '/',
     element: <App />,
     children: [
+      {
+        index: true,
+        element: <Home />,
+      },
       {
         path: 'cases',
         element: (
