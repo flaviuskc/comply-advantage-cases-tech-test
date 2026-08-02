@@ -1,51 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Flex, Heading, Text } from 'theme-ui';
-import { CasesApi, UsersApi } from 'shared';
+import { CasesApi, UsersApi, useDebouncedValue } from 'shared';
 
 import { CaseFilters } from './components/CaseFilters';
 import { CasesTable } from './components/CasesTable';
-import { isReassignableStatus } from './utils/caseStatus';
 
 const PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
-/*
- * The /api/cases mock endpoint has no assignee filter param (see
- * packages/shared/src/mockApi/handlers.ts) and the mock dataset is small
- * (200 records), so we fetch it all in one request and do filtering +
- * pagination client-side to keep results consistent across pages.
- */
-const FETCH_ALL_PAGE_SIZE = 500;
-
-// stable references so `?? EMPTY_*` doesn't create a new array identity on
-// every render while a query has no data yet, which would otherwise defeat
-// the useMemo calls below
+// stable reference so `?? EMPTY_USERS` doesn't create a new array identity
+// on every render while the query has no data yet
 const EMPTY_USERS: UsersApi.User[] = [];
-const EMPTY_CASES: CasesApi.Case[] = [];
-
-const pickRandomActiveAssignee = (
-  users: UsersApi.User[],
-  excludeUserId: string,
-): UsersApi.User | undefined => {
-  const candidates = users.filter(
-    (user) => user.active && user.identifier !== excludeUserId,
-  );
-  if (candidates.length === 0) {
-    return undefined;
-  }
-  return candidates[Math.floor(Math.random() * candidates.length)];
-};
-
-// Shared by the "needs reassignment" filter and the banner's count, so the
-// two can never disagree about which cases qualify.
-const needsReassignment = (
-  caseItem: CasesApi.Case,
-  usersById: Map<string, UsersApi.User>,
-): boolean => {
-  const assignee = usersById.get(caseItem.assignee_id);
-  return (
-    isReassignableStatus(caseItem.status) && !!assignee && !assignee.active
-  );
-};
 
 export const CaseListView = () => {
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
@@ -54,88 +19,50 @@ export const CaseListView = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  // Purely client-side simulation of reassignment - there's no write API for
-  // this, so we keep case-id -> new-assignee-id overrides in local state and
-  // layer them on top of whatever the query returns.
-  const [reassignments, setReassignments] = useState<Record<string, string>>(
-    {},
+
+  const debouncedSearchQuery = useDebouncedValue(
+    searchQuery,
+    SEARCH_DEBOUNCE_MS,
   );
 
+  // reset back to page 1 once a debounced search actually takes effect,
+  // rather than on every keystroke (which would also fire a page=1 request
+  // using the not-yet-debounced search term)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
+
   const casesQuery = CasesApi.useGetCasesQuery({
-    pageSize: FETCH_ALL_PAGE_SIZE,
+    pageNumber: currentPage,
+    pageSize: PAGE_SIZE,
+    assigneeIds: selectedAssigneeIds,
+    statuses: selectedStatuses,
+    search: debouncedSearchQuery,
+    needsReassignmentOnly,
+  });
+  // The reassignment banner's count is independent of the current filters/
+  // page, so it's a separate lightweight request (page_size=1 - we only
+  // need `total_count`) rather than derived from the main query's data.
+  const needsReassignmentCountQuery = CasesApi.useGetCasesQuery({
+    pageSize: 1,
+    needsReassignmentOnly: true,
   });
   const usersQuery = UsersApi.useGetUsersQuery();
 
   const users = usersQuery.data ?? EMPTY_USERS;
-  const allCases = casesQuery.data?.cases ?? EMPTY_CASES;
 
   const usersById = useMemo(
     () => new Map(users.map((user) => [user.identifier, user])),
     [users],
   );
 
-  const casesWithOverrides = useMemo(
-    () =>
-      allCases.map((caseItem) => {
-        const overrideAssigneeId = reassignments[caseItem.identifier];
-        return overrideAssigneeId
-          ? { ...caseItem, assignee_id: overrideAssigneeId }
-          : caseItem;
-      }),
-    [allCases, reassignments],
-  );
-
-  const needsReassignmentCount = useMemo(
-    () =>
-      casesWithOverrides.filter((caseItem) =>
-        needsReassignment(caseItem, usersById),
-      ).length,
-    [casesWithOverrides, usersById],
-  );
-
-  const filteredCases = useMemo(() => {
-    const selectedAssigneeSet = new Set(selectedAssigneeIds);
-    const selectedStatusSet = new Set(selectedStatuses);
-    const query = searchQuery.trim().toLowerCase();
-    return casesWithOverrides.filter((caseItem) => {
-      if (
-        selectedAssigneeSet.size > 0 &&
-        !selectedAssigneeSet.has(caseItem.assignee_id)
-      ) {
-        return false;
-      }
-      if (
-        selectedStatusSet.size > 0 &&
-        !selectedStatusSet.has(caseItem.status)
-      ) {
-        return false;
-      }
-      if (needsReassignmentOnly && !needsReassignment(caseItem, usersById)) {
-        return false;
-      }
-      if (query && !caseItem.name.toLowerCase().includes(query)) {
-        return false;
-      }
-      return true;
-    });
-  }, [
-    casesWithOverrides,
-    selectedAssigneeIds,
-    selectedStatuses,
-    needsReassignmentOnly,
-    searchQuery,
-    usersById,
-  ]);
-
-  const totalCount = filteredCases.length;
+  const cases = casesQuery.data?.cases ?? [];
+  const totalCount = casesQuery.data?.total_count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const pagedCases = filteredCases.slice(
-    (safePage - 1) * PAGE_SIZE,
-    safePage * PAGE_SIZE,
-  );
-  const rangeStart = totalCount === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(safePage * PAGE_SIZE, totalCount);
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, totalCount);
+  const needsReassignmentCount =
+    needsReassignmentCountQuery.data?.total_count ?? 0;
 
   const handleAssigneeFilterChange = (assigneeIds: string[]) => {
     setSelectedAssigneeIds(assigneeIds);
@@ -152,18 +79,34 @@ export const CaseListView = () => {
     setCurrentPage(1);
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    setCurrentPage(1);
+  const handleReassign = (caseId: string, currentAssigneeId: string) => {
+    // There's no write endpoint for this in the mock API - reassignment is
+    // out of scope for this exercise, so this is intentionally a no-op
+    // beyond logging the action that would be sent to a real backend.
+    console.log(
+      'Reassign case',
+      caseId,
+      'away from assignee',
+      currentAssigneeId,
+    );
   };
 
-  const handleReassign = (caseId: string, currentAssigneeId: string) => {
-    const newAssignee = pickRandomActiveAssignee(users, currentAssigneeId);
-    if (!newAssignee) {
-      return;
-    }
-    setReassignments((prev) => ({ ...prev, [caseId]: newAssignee.identifier }));
-  };
+  const CloseIcon = () => (
+    <svg
+      width={12}
+      height={12}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable={false}
+    >
+      <path d="M3 3l10 10M13 3 3 13" />
+    </svg>
+  );
 
   const isLoading = casesQuery.isLoading || usersQuery.isLoading;
   const isError = casesQuery.isError || usersQuery.isError;
@@ -189,7 +132,7 @@ export const CaseListView = () => {
           placeholder="Search cases"
           aria-label="Search cases"
           value={searchQuery}
-          onChange={(event) => handleSearchChange(event.target.value)}
+          onChange={(event) => setSearchQuery(event.target.value)}
           sx={{
             width: '260px',
             fontSize: 'font-size-md',
@@ -262,7 +205,7 @@ export const CaseListView = () => {
                 },
               }}
             >
-              Dismiss
+              <CloseIcon />
             </Button>
           </Flex>
         </Alert>
@@ -277,10 +220,10 @@ export const CaseListView = () => {
 
       {!isLoading && !isError && (
         <CasesTable
-          cases={pagedCases}
+          cases={cases}
           usersById={usersById}
           onReassign={handleReassign}
-          currentPage={safePage}
+          currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
           totalCount={totalCount}

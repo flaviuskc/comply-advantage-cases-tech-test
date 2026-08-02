@@ -1,3 +1,5 @@
+import { isReassignableCaseStatus } from 'shared';
+
 export interface CaseStatusConfig {
   label: string;
   badgeVariant: string;
@@ -39,11 +41,6 @@ export const ALL_CASE_STATUSES: CaseStatusOption[] = Object.entries(
 
 // Resolved cases (risk detected / no risk detected) are closed out, so
 // reassignment doesn't apply to them - only cases still open in some form.
-const REASSIGNABLE_STATUSES = new Set([
-  'CASE_NOT_STARTED',
-  'CASE_IN_PROGRESS',
-  'CASE_ON_HOLD',
-]);
-
-export const isReassignableStatus = (status: string): boolean =>
-  REASSIGNABLE_STATUSES.has(status);
+// The actual status set lives in `shared` since the mock API needs it too,
+// to compute the "needs reassignment" filter server-side.
+export const isReassignableStatus = isReassignableCaseStatus;

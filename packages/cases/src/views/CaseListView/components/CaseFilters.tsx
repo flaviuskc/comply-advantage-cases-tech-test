@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Badge, Box, Button, Checkbox, Flex, Label, Text } from 'theme-ui';
+import { Box, Button, Checkbox, Flex, Label, Text } from 'theme-ui';
 import { UsersApi, useOnClickOutside } from 'shared';
 
 import { ALL_CASE_STATUSES } from '../utils/caseStatus';
@@ -155,11 +155,6 @@ export const CaseFilters = ({
                     }
                   />
                   {user.name}
-                  {!user.active && (
-                    <Badge variant="neutral" sx={{ fontSize: '12px' }}>
-                      Inactive
-                    </Badge>
-                  )}
                 </Label>
               ))}
             </Box>

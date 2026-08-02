@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -151,10 +157,15 @@ describe('CaseListView', () => {
       target: { value: 'Reilly' },
     });
 
-    expect(await screen.findByText('Reilly - Hamill')).toBeInTheDocument();
-    expect(
-      screen.queryByText('Witting, Goyette and Bruen'),
-    ).not.toBeInTheDocument();
+    // "Reilly - Hamill" is already visible from the previous (pre-search)
+    // page thanks to keepPreviousData, so it alone doesn't prove the search
+    // has resolved - wait for the non-matching case to actually disappear
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Witting, Goyette and Bruen'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Reilly - Hamill')).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), {
       target: { value: '' },
@@ -174,9 +185,12 @@ describe('CaseListView', () => {
     openFilters();
     fireEvent.click(screen.getByRole('checkbox', { name: /Elijah Kirlin/ }));
 
-    const summary = getRangeSummaryText();
-    expect(summary).not.toContain('of 200 cases');
-    const filteredCount = Number(summary.match(/of (\d+) cases$/)?.[1]);
+    await waitFor(() =>
+      expect(getRangeSummaryText()).not.toContain('of 200 cases'),
+    );
+    const filteredCount = Number(
+      getRangeSummaryText().match(/of (\d+) cases$/)?.[1],
+    );
     expect(filteredCount).toBeGreaterThan(0);
     expect(filteredCount).toBeLessThan(200);
   });
@@ -192,9 +206,11 @@ describe('CaseListView', () => {
 
     // "Reilly - Hamill" is assigned to Elijah Kirlin, "Witting, Goyette and Bruen" is not
     expect(screen.getByText('Reilly - Hamill')).toBeInTheDocument();
-    expect(
-      screen.queryByText('Witting, Goyette and Bruen'),
-    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Witting, Goyette and Bruen'),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it('filters the cases table by the selected status(es)', async () => {
@@ -208,9 +224,11 @@ describe('CaseListView', () => {
 
     // "Reilly - Hamill" is On Hold, "Witting, Goyette and Bruen" is Resolved
     expect(screen.getByText('Reilly - Hamill')).toBeInTheDocument();
-    expect(
-      screen.queryByText('Witting, Goyette and Bruen'),
-    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Witting, Goyette and Bruen'),
+      ).not.toBeInTheDocument(),
+    );
     expect(
       screen.getByRole('button', { name: /Filters \(1\)/ }),
     ).toBeInTheDocument();
@@ -223,9 +241,11 @@ describe('CaseListView', () => {
 
     openFilters();
     fireEvent.click(screen.getByRole('checkbox', { name: /Elijah Kirlin/ }));
-    expect(
-      screen.queryByText('Witting, Goyette and Bruen'),
-    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Witting, Goyette and Bruen'),
+      ).not.toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
 
@@ -266,14 +286,19 @@ describe('CaseListView', () => {
       screen.getByRole('checkbox', { name: 'Needs reassignment' }),
     );
 
+    // "Reilly - Hamill" has an active assignee, so it doesn't qualify -
+    // wait for it to actually disappear rather than trusting the first
+    // positive match, since keepPreviousData can keep stale (pre-filter)
+    // rows on screen momentarily while the real request is in flight
+    await waitFor(() =>
+      expect(screen.queryByText('Reilly - Hamill')).not.toBeInTheDocument(),
+    );
     // "Conn and Sons" is CASE_NOT_STARTED with inactive assignee Willard Glover - qualifies
-    expect(await screen.findByText('Conn and Sons')).toBeInTheDocument();
+    expect(screen.getByText('Conn and Sons')).toBeInTheDocument();
     // "Abernathy, Kautzer and MacGyver" has an inactive assignee too, but is resolved - doesn't qualify
     expect(
       screen.queryByText('Abernathy, Kautzer and MacGyver'),
     ).not.toBeInTheDocument();
-    // "Reilly - Hamill" has an active assignee - doesn't qualify
-    expect(screen.queryByText('Reilly - Hamill')).not.toBeInTheDocument();
   });
 
   it('shows a reassign button only for open cases with an inactive assignee', async () => {
@@ -305,35 +330,23 @@ describe('CaseListView', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('reassigns a case to a different active assignee when clicked', async () => {
+  it('logs the reassign action instead of performing a write (no mock API for it)', async () => {
     renderWithQueryClient(<CaseListView />);
 
-    const initialRow = (await screen.findByText('Conn and Sons')).closest(
+    const row = (await screen.findByText('Conn and Sons')).closest(
       'tr',
     ) as HTMLElement;
-    expect(within(initialRow).getByText('Willard Glover')).toBeInTheDocument();
 
-    // scope the mock to just the click so it doesn't interfere with MSW's
-    // own use of Math.random (e.g. internal request-id generation) during
-    // the earlier fetch
-    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     fireEvent.click(
-      within(initialRow).getByRole('button', {
-        name: 'Reassign case Conn and Sons',
-      }),
+      within(row).getByRole('button', { name: 'Reassign case Conn and Sons' }),
     );
-    randomSpy.mockRestore();
 
-    // re-query rather than reusing `initialRow`: this row's own props change
-    // as a result of the click (its highlight/button disappear), so we
-    // shouldn't assume the same node identity survives the update
-    const updatedRow = (await screen.findByText('Conn and Sons')).closest(
-      'tr',
-    ) as HTMLElement;
-    expect(within(updatedRow).getByText('Miss Julie Veum')).toBeInTheDocument();
-    expect(
-      within(updatedRow).queryByText('Willard Glover'),
-    ).not.toBeInTheDocument();
+    expect(consoleLogSpy).toHaveBeenCalled();
+    consoleLogSpy.mockRestore();
+
+    // no write endpoint exists, so the row's data is unchanged
+    expect(within(row).getByText('Willard Glover')).toBeInTheDocument();
   });
 
   it('navigates to the case detail page when a row is clicked', async () => {

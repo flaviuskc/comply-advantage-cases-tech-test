@@ -109,6 +109,10 @@ export const CasesTable = ({
                   '&:hover': {
                     bg: canReassign ? 'brand100' : 'bgPanel',
                   },
+                  '&:hover [data-reassign-button], &:focus-within [data-reassign-button]':
+                    {
+                      opacity: 1,
+                    },
                 }}
               >
                 <Box as="td" sx={cellStyles}>
@@ -127,13 +131,7 @@ export const CasesTable = ({
                       justifyContent: 'space-between',
                     }}
                   >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'spacing-2xs',
-                      }}
-                    >
+                    <Box>
                       <Box
                         as="span"
                         sx={{
@@ -143,15 +141,21 @@ export const CasesTable = ({
                         {assignee ? assignee.name : 'Unassigned'}
                       </Box>
                       {isAssigneeInactive && (
-                        <Badge variant="neutral" sx={{ fontSize: '12px' }}>
-                          Inactive
-                        </Badge>
+                        <Box
+                          sx={{
+                            fontSize: '12px',
+                            color: 'textMuted',
+                          }}
+                        >
+                          Inactive user
+                        </Box>
                       )}
                     </Box>
                     {canReassign && (
                       <Button
                         type="button"
                         variant="outline"
+                        data-reassign-button
                         aria-label={`Reassign case ${caseItem.name}`}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -164,6 +168,11 @@ export const CasesTable = ({
                           fontSize: '12px',
                           py: 'spacing-2xs',
                           px: 'spacing-sm',
+                          opacity: 0,
+                          transition: 'opacity 150ms ease-in-out',
+                          '&:focus-visible': {
+                            opacity: 1,
+                          },
                         }}
                       >
                         Reassign
